@@ -1,2 +1,6 @@
 # EM-algorithm-in-Image-Segmentation
-Matlab; Image Segmentation
+
+# Course project of statistical signal processing
+
+
+
