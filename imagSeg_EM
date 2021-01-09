@@ -1,0 +1,84 @@
+function imagSeg_EM(str,K)
+%str: 图像路径
+%K: 聚类数
+img = imread(str);
+img = im2double(img);
+figure(1)
+% 显示原始图像
+imshow(img)
+%得到图像尺寸
+[row, column] = size(img(:,:,1));
+%The number of pixels N
+N = row*column;
+% 确定图像的像素数
+if size(img,3) == 1
+    img_gray = img;
+    % 把RGB图像转化为灰度图
+else
+    img_gray = rgb2gray(img);
+end
+% 把图像矩阵转化为列向量
+img_col = img_gray(:);
+
+% 假定图像是混合高斯模型（GMM）
+% 每个聚类是一个高斯信号
+step = (max(img_col)-min(img_col))/K;
+% 设置各个聚类的参数初值
+% 注意：初值的选取非常重要！！！选取不当可能无法收敛
+% mu(i): 第i种聚类的均值，sig2(i): 第i种聚类的方差
+mu = zeros(1,K);
+mu(1) = step/2;
+for i = 2:length(mu)
+    mu(i) = mu(i-1) + step; 
+end
+sig2 = var(img(1:1000))*ones(1,K);
+% P是概率矩阵
+% P(i,j): 第i个像素属于第j种聚类的概率 
+P = zeros(K,N);
+% P_k: 每种聚类存在的概率
+P_k = rand(1,K);
+% 归一化
+P_k = P_k/sum(P_k);
+%待求的参数为[P_k mu sig2]
+%在迭代中更新的参数，初始化
+new_mu = mu;
+new_sig2 = sig2;
+new_P = P;
+new_P_k = P_k;
+
+for i = 1:100
+    %最多迭代100次
+    %E步，求Q
+    for j = 1:K
+        %计算所有像素在第j种聚类下的条件概率
+        for k = 1:N
+            p_con = 1/sqrt(2*pi*sig2(j))*exp(-1/(2*sig2(j))*(img_col(k)-mu(j))^2);
+            new_P(j,k) = p_con * P_k(j);
+        end
+    end
+    %将迭代出的新的P进行归一化处理
+    for k = 1:N
+        new_P(:,k) = new_P(:,k)/sum(new_P(:,k));
+    end
+    %更新参数
+    for j = 1:K
+        new_P_k(j) = mean(new_P(j,:));
+        new_mu(j) = new_P(j,:)*img_col/sum(new_P(j,:));
+        new_sig2(j) = new_P(j,:)*((img_col-new_mu(j)).^2)/sum(new_P(j,:));
+    end
+    %根据每个像素分别在各聚类下的概率，找到最可能的聚类
+    [~,J] = max(new_P);
+    J = reshape(J,size(img_gray));
+    figure(2)
+    imshow(J,[])
+    if isSame(P_k,new_P_k) > 0 && isSame(sig2,new_sig2) > 0 && isSame(mu,new_mu) > 0
+        fprintf(strcat('已收敛循环次数： ', num2str(i)))
+        break
+    end
+    mu = new_mu;
+    P = new_P;
+    sig2 = new_sig2;
+    P_k = new_P_k;   
+end
+end
+
